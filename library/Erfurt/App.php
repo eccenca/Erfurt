@@ -491,6 +491,29 @@ class Erfurt_App
     }
 
     /**
+     * Authenticates a user with a given username and password against OAuth.
+     *
+     * @param string $username
+     * @param string $password
+     * @return Zend_Auth_Result
+     */
+    public function authenticateWithOauth($username = 'Anonymous', $password = '')
+    {
+        require_once 'Erfurt/Auth/Adapter/OAuth.php';
+        $adapter = new Erfurt_Auth_Adapter_OAuth($username, $password);
+
+        // Attempt authentication, saving the result.
+        $result = $this->getAuth()->authenticate($adapter);
+
+        // If the result is not valid, make sure the identity is cleared.
+        if (!$result->isValid()) {
+            $this->getAuth()->clearIdentity();
+        }
+
+        return $result;
+    }
+
+    /**
      * The second step of the OpenID authentication process.
      * Authenticates a user with a given OpenID. On success this
      * method will not return but instead redirect the user to the
@@ -617,10 +640,10 @@ class Erfurt_App
     public function getCache()
     {
         if (null === $this->_cache) {
-            $options	= $this->getConfig()->cache->frontend->toArray();
-            $options['automatic_serialization']	= TRUE;
+            $options = $this->getConfig()->cache->frontend->toArray();
+            $options['automatic_serialization'] = TRUE;
             if (!isset($options['lifetime']) || ((int)$options['lifetime'] < 1 )) {
-                $options['lifetime']	= NULL;
+                $options['lifetime'] = NULL;
             }
             $this->_cache = new Erfurt_Cache_Frontend_ObjectCache($options);
             $this->_cache->setBackend($this->_getCacheBackend());
@@ -1107,7 +1130,7 @@ class Erfurt_App
         if (null === $this->_cacheBackend) {
             $config = $this->getConfig();
             // check the type an whether type is supported
-            $cacheType	= $config->cache->backend->type;
+            $cacheType = $config->cache->backend->type;
             // caching is not enabled, use fake cache backend
             if (!$config->cache->frontend->enable)
                 $cacheType = "null";
