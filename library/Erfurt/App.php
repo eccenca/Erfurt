@@ -492,6 +492,9 @@ class Erfurt_App
 
     /**
      * Authenticates a user with a given username and password against OAuth.
+     * Attention: This is only for authorization grant "Resource Owner Password Credentials".
+     * This method receives username and password from login form and tries to get token.
+     * For authorization grant "Authorization Code"
      *
      * @param string $username
      * @param string $password
@@ -1114,7 +1117,29 @@ class Erfurt_App
 
         return $result;
     }
+    /**
+     * The third and last step of the OpenID authentication process.
+     * Checks whether the response is a valid OpenID result and
+     * returns the appropriate auth result.
+     *
+     * @param array $get The query part of the authentication request.
+     * @return Zend_Auth_Result
+     */
+    public function verifyOAuthResult($get, $redirectUri)
+    {
+        require_once 'Erfurt/Auth/Adapter/OAuth.php';
+        $adapter = new Erfurt_Auth_Adapter_OAuth($get, $redirectUri);
+        $result = $this->getAuth()->authenticate($adapter);
 
+        if (!$result->isValid()) {
+            $this->getAuth()->clearIdentity();
+        }
+
+        return $result;
+    }
+
+	
+	
     // ------------------------------------------------------------------------
     // --- Private methods ----------------------------------------------------
     // ------------------------------------------------------------------------

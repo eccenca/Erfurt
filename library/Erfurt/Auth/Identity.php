@@ -17,7 +17,8 @@
 class Erfurt_Auth_Identity
 {
     protected $_uri = null;
-    
+   
+    protected $_isOAuth     = false;
     protected $_isOpenId    = false;
     protected $_isWebId     = false;
     protected $_isAnonymous = false;
@@ -26,7 +27,9 @@ class Erfurt_Auth_Identity
     protected $_propertyUris = array();
     
     protected $_userData = array();
-    
+
+    protected $_oauthData  = array();
+
     public function __construct(array $userSpec)
     {
         $config = Erfurt_App::getInstance()->getConfig();
@@ -82,48 +85,84 @@ class Erfurt_Auth_Identity
         } else {
             $this->_isWebId = false;
         }   
+
+        if (isset($userSpec['is_oauth_user'])) {
+            $this->_isOAuth = true;
+            $this->_oauthData = array(
+                'accessToken'  => $userSpec['access_token'],
+                'refreshToken' => $userSpec['refresh_token'],
+                'expires'      => $userSpec['expires'],
+            );
+        } else {
+            $this->_isOAuth = false;
+        }   
     }
-    
+
     public function getUri()
     {
         return $this->_uri;
     }
-    
+
     public function getUsername()
     {
         return $this->_userData[$this->_propertyUris['username']];
     }
-    
+
     public function getEmail()
     {
         return $this->_userData[$this->_propertyUris['email']];
     }
-    
+
     public function getLabel()
     {
         return $this->_userData[$this->_propertyUris['label']];
     }
-    
+
+    public function isOAuth()
+    {
+        return $this->_isOAuth;
+    }
+
     public function isOpenId()
     {
         return $this->_isOpenId;
     }
-    
+
     public function isWebId()
     {
         return $this->_isWebId;
     }
-    
+
     public function isDbUser()
     {
         return $this->_isDbUser;
     }
-    
+
     public function isAnonymousUser()
     {
         return $this->_isAnonymous;
     }
-    
+
+    public function getOAuthAccessToken()
+    {
+        return $this->_oauthData['accessToken'];
+    }
+
+    public function getOAuthRefreshToken()
+    {
+        return $this->_oauthData['refreshToken'];
+    }
+
+    public function getOAuthExpires()
+    {
+        return $this->_oauthData['expires'];
+    }
+
+    public function setOAuthAccessToken( $token )
+    {
+        $this->_oauthData['accessToken'] = $token;
+    }
+
     public function setUsername($newUsername)
     {
         // Non-OpenID users are not allowed to change their username!
@@ -194,7 +233,7 @@ class Erfurt_Auth_Identity
         $this->_userData[$this->_propertyUris['username']] = $newUsername;
         return true;
     }
-    
+
     public function setEmail($newEmail)
     {
         // We save mail uris with mailto: prefix.
@@ -266,12 +305,12 @@ class Erfurt_Auth_Identity
         $this->_userData[$this->_propertyUris['email']] = $newEmail;
         return true;
     }
-    
+
     public function setLabel($newLabel)
     {
         // TODO later
     }
-    
+
     public function setPassword($newPassword)
     {
         $username = $this->getUsername();
@@ -320,12 +359,12 @@ class Erfurt_Auth_Identity
         
         return true;
     }
-    
+
     public function get($propertyUri)
     {
        // TODO later
     }
-    
+
     public function set($propertyUri, $value)
     {
         // TODO later
