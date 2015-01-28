@@ -454,6 +454,9 @@ class Erfurt_App
         if ($type === 'rdf') {
             require_once 'Erfurt/Auth/Adapter/Rdf.php';
             $adapter = new Erfurt_Auth_Adapter_Rdf($username, $password);
+        } else if ($type === 'oauth') {
+            require_once 'Erfurt/Auth/Adapter/OAuth.php';
+           $adapter = new Erfurt_Auth_Adapter_OAuth($username, $password);
         } else if ($type === 'none') {
             require_once 'Erfurt/Auth/Adapter/None.php';
             $adapter = new Erfurt_Auth_Adapter_None($username, $password);
@@ -553,6 +556,9 @@ class Erfurt_App
             if ($type === 'rdf') {
                 require_once 'Erfurt/Ac/Default.php';
                 $this->_ac = new Erfurt_Ac_Default();
+            } else if ($type === 'oauth') {
+                require_once 'Erfurt/Ac/OAuth.php';
+                $this->_ac = new Erfurt_Ac_OAuth();
             } else if ($type === 'none') {
                 require_once 'Erfurt/Ac/None.php';
                 $this->_ac = new Erfurt_Ac_None();
@@ -1128,7 +1134,7 @@ class Erfurt_App
     public function verifyOAuthResult($get, $redirectUri)
     {
         require_once 'Erfurt/Auth/Adapter/OAuth.php';
-        $adapter = new Erfurt_Auth_Adapter_OAuth($get, $redirectUri);
+        $adapter = new Erfurt_Auth_Adapter_OAuth(NULL, NULL, $get, $redirectUri);
         $result = $this->getAuth()->authenticate($adapter);
 
         if (!$result->isValid()) {
