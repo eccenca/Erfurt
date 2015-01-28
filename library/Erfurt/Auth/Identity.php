@@ -18,17 +18,14 @@ class Erfurt_Auth_Identity
 {
     protected $_uri = null;
    
-    protected $_isOAuth     = false;
-    protected $_isOpenId    = false;
-    protected $_isWebId     = false;
-    protected $_isAnonymous = false;
-    protected $_isDbUser    = false;
-    
+    protected $_isOAuth      = false;
+    protected $_isOpenId     = false;
+    protected $_isWebId      = false;
+    protected $_isAnonymous  = false;
+    protected $_isDbUser     = false;
     protected $_propertyUris = array();
-    
-    protected $_userData = array();
-
-    protected $_oauthData  = array();
+    protected $_userData     = array();
+    protected $_oauthData   = array();
 
     public function __construct(array $userSpec)
     {
@@ -145,17 +142,23 @@ class Erfurt_Auth_Identity
 
     public function getOAuthAccessToken()
     {
-        return $this->_oauthData['accessToken'];
+        if ($this->isOAuth()) {
+            return $this->_oauthData['accessToken'];
+        }
+        return null;
     }
 
     public function getOAuthRefreshToken()
     {
-        return $this->_oauthData['refreshToken'];
+        if ($this->isOAuth()) {
+            return $this->_oauthData['refreshToken'];
+        }
+        return null;
     }
 
     public function getOAuthExpires()
     {
-        return $this->_oauthData['expires'];
+        return $this->isOAuth() && $this->_oauthData['expires'];
     }
 
     public function setOAuthAccessToken( $token )
