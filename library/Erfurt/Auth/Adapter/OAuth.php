@@ -22,18 +22,73 @@ class Erfurt_Auth_Adapter_OAuth implements Zend_Auth_Adapter_Interface
     private $_username = null;
     private $_password = null;
     private $_get;
+    private $_redirectUri;
+	private $_uris;
+	private $_config = null;
 
     /**
      * Constructor
      */
-    public function __construct($get, $redirectUri /*$username = null, $password = null*/) 
+    public function __construct($username = null, $password = null, $get = null, $redirectUri = null) 
     {
+        // store given user credentials
+        $this->_username = $username;
+        $this->_password = $password;
         $this->_get         = $get;
         $this->_redirectUri = $redirectUri;
-        // store given user credentials
-//        $this->_username = $username;
-//        $this->_password = $password;
     }
+
+    /**
+     * Returns the anonymous user details.
+     *
+     * @return array
+     */
+    private function _getAnonymousUser()
+    {
+        $uris = $this->_getUris();
+        $user = array(
+            'username'  => 'Anonymous',
+            'uri'       => $uris['user_anonymous'],
+            'dbuser'    => false,
+            'email'     => '',
+            'anonymous' => true
+        );
+
+        require_once 'Erfurt/Auth/Identity.php';
+        $identityObject = new Erfurt_Auth_Identity($user);
+
+        return $identityObject;
+    }
+
+    private function _getConfig()
+    {
+        if (null === $this->_config) {
+            $this->_config = Erfurt_App::getInstance()->getConfig();
+        }
+
+        return $this->_config;
+    }
+
+    private function _getUris()
+    {
+        if (null === $this->_uris) {
+            $config = $this->_getConfig();
+
+            $this->_uris = array(
+                'user_class'      => $config->ac->user->class,
+                'user_username'   => $config->ac->user->name,
+                'user_password'   => $config->ac->user->pass,
+                'user_mail'       => $config->ac->user->mail,
+                'user_superadmin' => $config->ac->user->superAdmin,
+                'user_anonymous'  => $config->ac->user->anonymousUser,
+                'action_deny'     => $config->ac->action->deny,
+                'action_login'    => $config->ac->action->login
+            );
+        }
+
+        return $this->_uris;
+    }
+
 
     // ------------------------------------------------------------------------
     // --- Public methods -----------------------------------------------------
@@ -60,7 +115,7 @@ class Erfurt_Auth_Adapter_OAuth implements Zend_Auth_Adapter_Interface
 
         if( $config->grantType === "code" )
             return $this->authenticateAuthorizationCode();
-        else
+        else if( $config->grantType === "password" )
             return $this->authenticatePassword();
     }
 
@@ -69,6 +124,10 @@ class Erfurt_Auth_Adapter_OAuth implements Zend_Auth_Adapter_Interface
         $app = Erfurt_App::getInstance();
         $config = $app->getConfig()->auth->oauth;
         $refreshToken = $app->getAuth()->getIdentity()->getOAuthRefreshToken();
+        if (!$refreshToken) {
+            $msg  = 'Unauthorized: token outdated and no refresh token available.';
+            throw new Exception($msg, Zend_Auth_Result::FAILURE_CREDENTIAL_INVALID);
+        }
 
         if (!strlen(trim($providerUrl = $config->providerUrl))) {
             $msg = 'OAuth config error: No OAuth provider configured';
@@ -94,15 +153,28 @@ class Erfurt_Auth_Adapter_OAuth implements Zend_Auth_Adapter_Interface
         $client->setRawData(http_build_query($postData));
         $response = $client->request(Zend_Http_Client::POST);
         $data = json_decode($response->getBody());
-
+//print_r($app->getAuth()->getIdentity());
+//die;
         $app->getAuth()->getIdentity()->setOAuthAccessToken( $data->access_token );
     }
 
-    static public function readResource( $path )
-    {
+    static public function sparql( $query ){
         $app = Erfurt_App::getInstance();
         $config = $app->getConfig()->auth->oauth;
-        $accessToken = $app->getAuth()->getIdentity()->getOAuthAccessToken();
+        $path   = "/proxy/" . $config->proxyId . '/sparql';
+        return self::readResource( $path, array( 'query' => $query ) );
+    }
+
+    static public function readResource( $path, $postData = NULL )
+    {
+        $app = Erfurt_App::getInstance();
+        $config = $app->getConfig()->auth->oauth;#
+        $identity    = $app->getAuth()->getIdentity();
+        if (!$identity){
+//            throw new RuntimeException('Not authenticated');
+            return null;
+        }
+        $accessToken = $identity->getOAuthAccessToken();
 
         if (!strlen(trim($providerUrl = $config->providerUrl))) {
             $msg = 'OAuth config error: No OAuth provider configured';
@@ -120,14 +192,16 @@ class Erfurt_Auth_Adapter_OAuth implements Zend_Auth_Adapter_Interface
         $client = $app->getHttpClient($providerUrl.$path);
 //        $client->setAuth($clientId, $clientSecret, Zend_Http_Client::AUTH_BASIC);
         $client->setHeaders('Authorization', 'bearer '.$accessToken);
-//        $client->setRawData(http_build_query($postData));
-        $response = $client->request(Zend_Http_Client::POST);
-		var_dump( $response );
+        $method = Zend_Http_Client::GET;
+        if ($postData) {
+            $method = Zend_Http_Client::POST;
+            $client->setRawData(http_build_query($postData));
+        }
+        $response = $client->request($method);
         $data = json_decode($response->getBody());
 
         // handle errors
         if (!empty($data->error)) {
-
             if($data->error == "invalid_token"){
                 self::refreshToken();
                 return self::readResource( $path );
@@ -142,7 +216,7 @@ class Erfurt_Auth_Adapter_OAuth implements Zend_Auth_Adapter_Interface
             // error: user credentials are invalid
             if ($data->error === "") {
                 $msg  = 'Bad credentials: OAuth authentication failed.';
-                throw new Exception($msg, Zend_Auth_Result::FAILURE_IDENTITY_NOT_FOUND);
+                throw new Exceptino($msg, Zend_Auth_Result::FAILURE_IDENTITY_NOT_FOUND);
             }
 
             // error: others - be more verbose by adding error description
@@ -175,6 +249,9 @@ class Erfurt_Auth_Adapter_OAuth implements Zend_Auth_Adapter_Interface
         if (!strlen(trim($clientSecret = $config->clientSecret))) {
             $msg = 'OAuth config error: No OAuth client secret configured';
             return new Zend_Auth_Result($result, null, array($msg));
+        }
+        if (empty($this->_get['code'])) {
+            return new Zend_Auth_Result(Zend_Auth_Result::SUCCESS, $this->_getAnonymousUser());
         }
 
         $postData = array(
@@ -218,7 +295,7 @@ class Erfurt_Auth_Adapter_OAuth implements Zend_Auth_Adapter_Interface
         if (!empty($data->access_token)) {
             $identity = array(
                 'username'       => $this->_username,
-                'uri'            => '' . $this->_username,
+                'uri'            => '' . $this->_username,											//  @todo make an URI!
                 'dbuser'         => (($this->_username === 'SuperAdmin') ? true : false), 
                 'anonymous'      => false,
                 'is_oauth_user'  => true,
