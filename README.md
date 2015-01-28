@@ -42,3 +42,6 @@ wide `.git/config` file.
 Currently, this library is developed using [OntoWiki's coding
 standard](http://code.google.com/p/ontowiki/wiki/CodingStandard).
 
+### Test
+
+This change is only for testing...
