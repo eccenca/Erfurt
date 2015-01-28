@@ -84,6 +84,10 @@ class Erfurt_Store_Adapter_Multistore implements Erfurt_Store_Adapter_Interface,
                         require_once 'Erfurt/Store/Adapter/OntoWiki.php';
                         $this->_backends[self::BACKEND_PREFIX.$i] = new Erfurt_Store_Adapter_OntoWiki($backendOptions);
                         break;
+                    case 'oauth':
+                        require_once 'Erfurt/Store/Adapter/OAuth.php';
+                        $this->_backends[self::BACKEND_PREFIX.$i] = new Erfurt_Store_Adapter_OAuth($backendOptions);
+                        break;
                     default:
                         require_once 'Erfurt/Store/Adapter/Exception.php';
                         throw new Erfurt_Store_Adapter_Exception('Backend type currently not supported.');
@@ -254,7 +258,7 @@ class Erfurt_Store_Adapter_Multistore implements Erfurt_Store_Adapter_Interface,
     }
     
     public function sparqlQuery($query, $options=array())
-    {   
+    {
         $resultform =(isset($options[Erfurt_Store::RESULTFORMAT]))?$options[Erfurt_Store::RESULTFORMAT]:Erfurt_Store::RESULTFORMAT_PLAIN;
         
         if(!($query instanceof Erfurt_Sparql_SimpleQuery)) {
